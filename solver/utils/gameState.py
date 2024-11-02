@@ -1,9 +1,14 @@
+from solver.astar import astar
 from solver.graph import Graph
+from solver.utils.types import Connection, Demand
+from typing import List
+
 
 class GameState:
-    def __init__(self, graph: Graph):
-        self.graph = graph
-        graph.load_data("../../data")
+    def __init__(self):
+        self.graph = Graph()
+        self.graph.load_data("../../data")
+        self.demand_queue: List[Demand] = []
         self.connection_queue = []
 
     def update_refinery_current_stock(self, refinery_id: int, new_capacity: int):
@@ -35,9 +40,23 @@ class GameState:
     def get_connections(self):
         return self.connection_queue
 
+    def successors(self, curr):
+        L = []
+        for neigh in self.graph.adjacency_list[curr]:
+            connection = self.graph.connections_dict[(curr, neigh)]
+            for conn in connection:
+                if conn["current_capacity"] >= conn["max_capacity"]:
+                    continue
+                L.append(neigh)
 
+        return L
 
+    def load_demands(self, demands):
+        self.demand_queue += demands
+        self.demand_queue = sorted(self.demand_queue,
+                                   key=lambda x: (x.start_delivery_day, x.end_delivery_day - x.start_delivery_day))
 
-
-
-
+game = GameState()
+print(game.successors(11))
+# print(game.graph.id_hashmap['9ba06385-f553-4f2f-b4e7-f398373071a8'])
+# print(astar(game.graph.id_hashmap['beb6ba68-6d89-48e0-a6aa-1ee978bafa27'], game.graph.id_hashmap['8a50c288-5063-433f-8da6-64f7a0b4f361'], 10000, lambda x,y: 1, game))
