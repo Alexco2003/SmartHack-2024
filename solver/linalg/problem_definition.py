@@ -1,147 +1,267 @@
 import pulp
 from solver.utils.reader import *
+from solver.utils.regex import extract_ids
 
-PIPELINE_COST_PER_UNIT_DISTANCE = 0.05
-TRUCK_COST_PER_UNIT_DISTANCE = 0.42
 
-connections: List[Connection] = read_connections("../../data/connections.csv")
-customers: List[Customer] = read_customers("../../data/customers.csv")
-tanks: List[Tank] = read_tanks("../../data/tanks.csv")
-refineries: List[Refinery] = read_refineries("../../data/refineries.csv")
-demands: List[Demand] = read_demands("../../data/demands.csv")
-demands = demands[:246]
+class ProblemModel:
+    PIPELINE_COST_PER_UNIT_DISTANCE = 0.05
+    TRUCK_COST_PER_UNIT_DISTANCE = 0.42
+    DISTANCE_FROM_QUANTITY_NEEDED = 100
 
-refineries_ids = [refinery.id for refinery in refineries]
-tanks_ids = [tank.id for tank in tanks]
-customers_ids = [customer.id for customer in customers]
+    connections: List[Connection] = []
+    customers: List[Customer] = []
+    tanks: List[Tank] = []
+    refineries: List[Refinery] = []
+    demands: List[Demand] = []
+    current_demand: List[Demand] = []
 
-production_cost = {refinery.id: refinery.production_cost for refinery in refineries}
-production_co2 = {refinery.id: refinery.production_co2 for refinery in refineries}
+    valid_connections = {}
 
-# max output tanks can send
-tank_max_outputs = {tank.id: min(tank.max_output, tank.initial_stock) for tank in tanks}
-refinery_max_outputs = {refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in refineries}
+    model = None
+    x_tank_to_customer = {}
+    x_refinery_to_tank = {}
 
-transport_cost = {}
+    tank_max_outputs = {}
+    refinery_max_outputs = {}
 
-# Create a dictionary to hold valid connections
-valid_connections = {}
+    transport_cost = {}
+    sent_units = {}
 
-for connection in connections:
-    from_id = connection["from_id"]
-    to_id = connection["to_id"]
-    distance = connection["distance"]
-    connection_type = connection["connection_type"]
+    TOTAL_COST = 0
 
-    if connection_type == "PIPELINE":
-        transport_cost[(from_id, to_id)] = distance * PIPELINE_COST_PER_UNIT_DISTANCE
-    elif connection_type == "TRUCK":
-        transport_cost[(from_id, to_id)] = distance * TRUCK_COST_PER_UNIT_DISTANCE
+    @staticmethod
+    def load_data() -> None:
+        ProblemModel.connections = read_connections("../../data/connections.csv")
+        ProblemModel.customers = read_customers("../../data/customers.csv")
+        ProblemModel.tanks = read_tanks("../../data/tanks.csv")
+        ProblemModel.refineries = read_refineries("../../data/refineries.csv")
+        ProblemModel.demands = read_demands("../../data/demands.csv")
 
-    valid_connections[(from_id, to_id)] = connection["max_capacity"]
+    @staticmethod
+    def process_data() -> None:
+        ProblemModel.refineries_ids = [refinery.id for refinery in ProblemModel.refineries]
+        ProblemModel.tanks_ids = [tank.id for tank in ProblemModel.tanks]
+        ProblemModel.customers_ids = [customer.id for customer in ProblemModel.customers]
 
-# model
-model = pulp.LpProblem("Fuel_Delivery_Optimization", pulp.LpMinimize)
+        # max output tanks can send
+        ProblemModel.tank_max_outputs = {
+            tank.id: min(tank.max_output, tank.initial_stock) for tank in ProblemModel.tanks
+        }
+        ProblemModel.refinery_max_outputs = {
+            refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in ProblemModel.refineries
+        }
 
-# decision variables
-# Stage 1: Transport from refinery to tank
-x_refinery_to_tank = pulp.LpVariable.dicts(
-    "x_refinery_to_tank",
-    [
-        (refinery.id, tank.id)
-        for refinery in refineries
-        for tank in tanks
-        if (refinery.id, tank.id) in valid_connections
-    ],
-    lowBound=0,
-    cat="Integer",
-)
+        for tank in ProblemModel.tanks:
+            ProblemModel.sent_units[tank.id] = 0
 
-# Stage 2: Transport from tank to customer
-x_tank_to_customer = pulp.LpVariable.dicts(
-    "x_tank_to_customer",
-    [
-        (tank.id, demand.customer_id)
-        for tank in tanks
-        for demand in demands
-        if (tank.id, demand.customer_id) in valid_connections
-    ],
-    lowBound=0,
-    cat="Integer",
-)
+        for refinery in ProblemModel.refineries:
+            ProblemModel.sent_units[refinery.id] = 0
 
-threshold = 100
-for demand in demands:
-    customer_id = demand.customer_id
-    demand_id = demand.id
-    quantity_needed = demand.quantity
+        ProblemModel.transport_cost = {}
 
-    # Ensure that total delivery from all tanks meets demand within a threshold range
-    model += (
-        pulp.lpSum(
-            [x_tank_to_customer[tank.id, customer_id] for tank in tanks if (tank.id, customer_id) in valid_connections]
-        )
-        >= quantity_needed - threshold,
-        f"Demand_Fulfillment_{customer_id}_{demand_id}_Min",
-    )
+        # Create a dictionary to hold valid connections
+        ProblemModel.valid_connections = {}
 
-    model += (
-        pulp.lpSum(
-            [x_tank_to_customer[tank.id, customer_id] for tank in tanks if (tank.id, customer_id) in valid_connections]
-        )
-        <= quantity_needed + threshold,
-        f"Demand_Fulfillment_{customer_id}_{demand_id}_Max",
-    )
+        for connection in ProblemModel.connections:
+            from_id = connection["from_id"]
+            to_id = connection["to_id"]
+            distance = connection["distance"]
+            connection_type = connection["connection_type"]
 
-for tank in tanks:
-    model += (
-        pulp.lpSum(
+            if connection_type == "PIPELINE":
+                ProblemModel.transport_cost[(from_id, to_id)] = distance * ProblemModel.PIPELINE_COST_PER_UNIT_DISTANCE
+            elif connection_type == "TRUCK":
+                ProblemModel.transport_cost[(from_id, to_id)] = distance * ProblemModel.TRUCK_COST_PER_UNIT_DISTANCE
+
+            ProblemModel.valid_connections[(from_id, to_id)] = connection["max_capacity"]
+
+    @staticmethod
+    def build_model() -> None:
+        # model
+        ProblemModel.model = pulp.LpProblem("Fuel_Delivery_Optimization", pulp.LpMinimize)
+
+    @staticmethod
+    def add_decision_variables() -> None:
+        # decision variables
+        # Stage 1: Transport from refinery to tank
+        ProblemModel.x_refinery_to_tank = pulp.LpVariable.dicts(
+            "x_refinery_to_tank",
             [
-                x_tank_to_customer[tank.id, demand.customer_id]
-                for demand in demands
-                if (tank.id, demand.customer_id) in valid_connections
-            ]
+                (refinery.id, tank.id)
+                for refinery in ProblemModel.refineries
+                for tank in ProblemModel.tanks
+                if (refinery.id, tank.id) in ProblemModel.valid_connections
+            ],
+            lowBound=0,
+            cat="Integer",
         )
-        <= tank_max_outputs[tank.id],
-        f"Tank_Max_Outputs_{tank.id}",
-    )
 
-for refinery in refineries:
-    model += (
-        pulp.lpSum(
-            [x_refinery_to_tank[refinery.id, tank.id] for tank in tanks if (refinery.id, tank.id) in valid_connections]
+        # Stage 2: Transport from tank to customer
+        ProblemModel.x_tank_to_customer = pulp.LpVariable.dicts(
+            "x_tank_to_customer",
+            [
+                (tank.id, demand.customer_id)
+                for tank in ProblemModel.tanks
+                for demand in ProblemModel.current_demand
+                if (tank.id, demand.customer_id) in ProblemModel.valid_connections
+            ],
+            lowBound=0,
+            cat="Integer",
         )
-        <= refinery_max_outputs[refinery.id],
-        f"Refinery_Max_Outputs_{refinery.id}",
-    )
 
-model += (
-    # Transport cost for Stage 1: refinery to tank
-    pulp.lpSum(
-        [
-            transport_cost[refinery.id, tank.id] * x_refinery_to_tank[refinery.id, tank.id]
-            for refinery in refineries
-            for tank in tanks
-            if (refinery.id, tank.id) in transport_cost
-        ]
-    )
-    # Transport cost for Stage 2: tank to customer
-    + pulp.lpSum(
-        [
-            transport_cost[tank.id, demand.customer_id] * x_tank_to_customer[tank.id, demand.customer_id]
-            for tank in tanks
-            for demand in demands
-            if (tank.id, demand.customer_id) in transport_cost
-        ]
-    ),  # Example objective term for production cost
-    "Total_Cost",
-)
+    @staticmethod
+    def add_constraints() -> None:
+        for demand in ProblemModel.current_demand:
+            customer_id = demand.customer_id
+            demand_id = demand.id
+            quantity_needed = demand.quantity
 
-model.solve()
+            # Ensure that total delivery from all tanks meets demand within a threshold range
+            ProblemModel.model += (
+                pulp.lpSum(
+                    [
+                        ProblemModel.x_tank_to_customer[tank.id, customer_id]
+                        for tank in ProblemModel.tanks
+                        if (tank.id, customer_id) in ProblemModel.valid_connections
+                    ]
+                )
+                >= quantity_needed - ProblemModel.DISTANCE_FROM_QUANTITY_NEEDED,
+                f"Demand_Fulfillment_{customer_id}_{demand_id}_Min",
+            )
 
-print("Status:", pulp.LpStatus[model.status])
-for v in model.variables():
-    if v.varValue > 0:
-        print(v.name, "=", v.varValue)
+            ProblemModel.model += (
+                pulp.lpSum(
+                    [
+                        ProblemModel.x_tank_to_customer[tank.id, customer_id]
+                        for tank in ProblemModel.tanks
+                        if (tank.id, customer_id) in ProblemModel.valid_connections
+                    ]
+                )
+                <= quantity_needed + ProblemModel.DISTANCE_FROM_QUANTITY_NEEDED,
+                f"Demand_Fulfillment_{customer_id}_{demand_id}_Max",
+            )
 
-print("Total Cost = ", pulp.value(model.objective))
+        for tank in ProblemModel.tanks:
+            ProblemModel.model += (
+                pulp.lpSum(
+                    [
+                        ProblemModel.x_tank_to_customer[tank.id, demand.customer_id]
+                        for demand in ProblemModel.current_demand
+                        if (tank.id, demand.customer_id) in ProblemModel.valid_connections
+                    ]
+                )
+                <= ProblemModel.tank_max_outputs[tank.id] - ProblemModel.sent_units[tank.id],
+                f"Tank_Max_Outputs_{tank.id}",
+            )
+
+        for refinery in ProblemModel.refineries:
+            ProblemModel.model += (
+                pulp.lpSum(
+                    [
+                        ProblemModel.x_refinery_to_tank[refinery.id, tank.id]
+                        for tank in ProblemModel.tanks
+                        if (refinery.id, tank.id) in ProblemModel.valid_connections
+                    ]
+                )
+                <= ProblemModel.refinery_max_outputs[refinery.id] - ProblemModel.sent_units[refinery.id],
+                f"Refinery_Max_Outputs_{refinery.id}",
+            )
+
+    @staticmethod
+    def add_function_objective() -> None:
+        ProblemModel.model += (
+            # Transport cost for Stage 1: refinery to tank
+            pulp.lpSum(
+                [
+                    ProblemModel.transport_cost[refinery.id, tank.id]
+                    * ProblemModel.x_refinery_to_tank[refinery.id, tank.id]
+                    for refinery in ProblemModel.refineries
+                    for tank in ProblemModel.tanks
+                    if (refinery.id, tank.id) in ProblemModel.transport_cost
+                ]
+            )
+            # Transport cost for Stage 2: tank to customer
+            + pulp.lpSum(
+                [
+                    ProblemModel.transport_cost[tank.id, demand.customer_id]
+                    * ProblemModel.x_tank_to_customer[tank.id, demand.customer_id]
+                    for tank in ProblemModel.tanks
+                    for demand in ProblemModel.current_demand
+                    if (tank.id, demand.customer_id) in ProblemModel.transport_cost
+                ]
+            ),  # Example objective term for production cost
+            "Total_Cost",
+        )
+
+    @staticmethod
+    def solve() -> None:
+        ProblemModel.model.solve()
+
+    @staticmethod
+    def display() -> None:
+        print("Status:", pulp.LpStatus[ProblemModel.model.status])
+        for v in ProblemModel.model.variables():
+            if v.varValue > 0:
+                print(v.name, "=", v.varValue)
+
+        print("Total Cost = ", pulp.value(ProblemModel.model.objective))
+
+    @staticmethod
+    def produce_refinery() -> None:
+        ProblemModel.refinery_max_outputs = {
+            refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in ProblemModel.refineries
+        }
+
+        refinery_max_outputs_copy = {
+            refinery.id: min(refinery.max_output, ProblemModel.refinery_max_outputs[refinery.id] + refinery.production)
+            for refinery in ProblemModel.refineries
+        }
+
+        ProblemModel.refinery_max_outputs = refinery_max_outputs_copy
+
+    @staticmethod
+    def process_demand(demand: Demand) -> None:
+        ProblemModel.current_demand = [demand]
+
+        ProblemModel.update_model()
+        ProblemModel.solve()
+
+        for v in ProblemModel.model.variables():
+            ids = extract_ids(v.name)
+
+            if v.varValue == 0:
+                continue
+
+            # replace _ to -
+            for i in range(len(ids)):
+                ids[i] = ids[i].replace("_", "-")
+
+            if v.name[:18] == "x_tank_to_customer":
+                ProblemModel.sent_units[ids[0]] += v.varValue
+            elif v.name[:18] == "x_refinery_to_tank":
+                ProblemModel.sent_units[ids[0]] += v.varValue
+
+                diff = ProblemModel.sent_units[ids[1]] - v.varValue
+                if diff < 0:
+                    diff = 0
+                ProblemModel.sent_units[ids[1]] = diff
+
+        ProblemModel.TOTAL_COST += pulp.value(ProblemModel.model.objective)
+        ProblemModel.produce_refinery()
+        ProblemModel.display()
+
+    @staticmethod
+    def update_model() -> None:
+        ProblemModel.build_model()
+        ProblemModel.add_decision_variables()
+        ProblemModel.add_constraints()
+        ProblemModel.add_function_objective()
+
+
+ProblemModel.load_data()
+ProblemModel.process_data()
+
+for index in range(len(ProblemModel.demands[:10])):
+    ProblemModel.process_demand(ProblemModel.demands[index])
+
+print(f"\n\nTOTAL FINAL COST: {ProblemModel.TOTAL_COST}")
