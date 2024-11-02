@@ -9,6 +9,8 @@ class Connection(TypedDict):
     lead_time_days: int
     connection_type: str
     max_capacity: int
+    current_capacity: int
+    
 
 @dataclass
 class Customer:
@@ -43,6 +45,7 @@ class Refinery:
     production_co2: float
     initial_stock: int
     node_type: str
+    current_stock: int
 
 @dataclass
 class Tank:
@@ -57,3 +60,4 @@ class Tank:
     over_output_penalty: float
     initial_stock: int
     node_type: str
+    current_stock: int
