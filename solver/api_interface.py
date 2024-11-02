@@ -2,7 +2,6 @@ import json
 from typing import Dict, List, TypedDict, Union
 
 import requests
-import time
 
 
 class ErrorType(TypedDict):
