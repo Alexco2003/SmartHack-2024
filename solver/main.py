@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from api_interface import ErrorType, Rest
+from api_interface import Rest
 
 # load all env variables
 load_dotenv()
@@ -10,5 +10,3 @@ load_dotenv()
 # set the API key
 API_KEY = os.getenv("API_KEY")
 Rest.set_api_key(API_KEY)
-resp: str | ErrorType = Rest.start_session()
-Rest.start_session()
