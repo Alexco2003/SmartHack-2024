@@ -1,5 +1,5 @@
 from typing import List
-from utils.reader import *
+from solver.utils.reader import *
 
 class Graph:
     mapping_list: List[str] = []
