@@ -1,6 +1,6 @@
 import csv
 from typing import List
-from utils.types import Connection, Customer, Demand, Refinery, Tank
+from solver.utils.types import Connection, Customer, Demand, Refinery, Tank
 
 def read_connections(file_path: str) -> List[Connection]:
     connections = []
