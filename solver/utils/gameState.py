@@ -32,10 +32,10 @@ class GameState:
             connection[1] -= 1
             if connection[1] == 0:
                 self.connection_queue.remove(connection)
-                self.graph.connections_dict[(connection[0]['from_id'], connection[0]['to_id'])]['current_capacity'] = 0
+                self.graph.connections_dict[(connection[0]['from_id'], connection[0]['to_id'])][0]['current_capacity'] = 0
     def add_connection_to_queue(self, connection, days, capacity):
         self.connection_queue.append([connection, days])
-        self.graph.connections_dict[(connection['from_id'], connection['to_id'])]['current_capacity'] = capacity
+        self.graph.connections_dict[(connection['from_id'], connection['to_id'])][0]['current_capacity'] = capacity
 
     def get_connections(self):
         return self.connection_queue
