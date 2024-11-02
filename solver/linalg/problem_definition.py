@@ -9,7 +9,7 @@ customers: List[Customer] = read_customers("../../data/customers.csv")
 tanks: List[Tank] = read_tanks("../../data/tanks.csv")
 refineries: List[Refinery] = read_refineries("../../data/refineries.csv")
 demands: List[Demand] = read_demands("../../data/demands.csv")
-demands = demands[:1]
+demands = demands[:246]
 
 refineries_ids = [refinery.id for refinery in refineries]
 tanks_ids = [tank.id for tank in tanks]
@@ -18,10 +18,10 @@ customers_ids = [customer.id for customer in customers]
 production_cost = {refinery.id: refinery.production_cost for refinery in refineries}
 production_co2 = {refinery.id: refinery.production_co2 for refinery in refineries}
 
+# max output tanks can send
 tank_max_outputs = {tank.id: min(tank.max_output, tank.initial_stock) for tank in tanks}
 refinery_max_outputs = {refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in refineries}
 
-max_capacity = {}
 transport_cost = {}
 
 # Create a dictionary to hold valid connections
@@ -32,8 +32,6 @@ for connection in connections:
     to_id = connection["to_id"]
     distance = connection["distance"]
     connection_type = connection["connection_type"]
-
-    max_capacity[(from_id, to_id)] = connection["max_capacity"]
 
     if connection_type == "PIPELINE":
         transport_cost[(from_id, to_id)] = distance * PIPELINE_COST_PER_UNIT_DISTANCE
@@ -72,40 +70,30 @@ x_tank_to_customer = pulp.LpVariable.dicts(
     cat="Integer",
 )
 
+threshold = 100
 for demand in demands:
     customer_id = demand.customer_id
     demand_id = demand.id
     quantity_needed = demand.quantity
 
-    # Ensure that total delivery from all tanks meets demand
+    # Ensure that total delivery from all tanks meets demand within a threshold range
     model += (
         pulp.lpSum(
             [x_tank_to_customer[tank.id, customer_id] for tank in tanks if (tank.id, customer_id) in valid_connections]
         )
-        >= quantity_needed,
-        f"Demand_Fulfillment_{customer_id}_{demand_id}",
+        >= quantity_needed - threshold,
+        f"Demand_Fulfillment_{customer_id}_{demand_id}_Min",
+    )
+
+    model += (
+        pulp.lpSum(
+            [x_tank_to_customer[tank.id, customer_id] for tank in tanks if (tank.id, customer_id) in valid_connections]
+        )
+        <= quantity_needed + threshold,
+        f"Demand_Fulfillment_{customer_id}_{demand_id}_Max",
     )
 
 for tank in tanks:
-    # Ensure total inflow to the tank equals total outflow to customers
-    model += (
-        pulp.lpSum(
-            [
-                x_refinery_to_tank[refinery.id, tank.id]
-                for refinery in refineries
-                if (refinery.id, tank.id) in valid_connections
-            ]
-        )
-        == pulp.lpSum(
-            [
-                x_tank_to_customer[tank.id, demand.customer_id]
-                for demand in demands
-                if (tank.id, demand.customer_id) in valid_connections
-            ]
-        ),
-        f"Flow_Balance_{tank.id}",
-    )
-
     model += (
         pulp.lpSum(
             [
@@ -115,7 +103,7 @@ for tank in tanks:
             ]
         )
         <= tank_max_outputs[tank.id],
-        f"Tank_Capacity_{tank.id}",
+        f"Tank_Max_Outputs_{tank.id}",
     )
 
 for refinery in refineries:
@@ -123,16 +111,8 @@ for refinery in refineries:
         pulp.lpSum(
             [x_refinery_to_tank[refinery.id, tank.id] for tank in tanks if (refinery.id, tank.id) in valid_connections]
         )
-        <= refinery.max_output,
-        f"Max_Output_Refinires_{refinery.id}",
-    )
-
-    model += (
-        pulp.lpSum(
-            [x_refinery_to_tank[refinery.id, tank.id] for tank in tanks if (refinery.id, tank.id) in valid_connections]
-        )
         <= refinery_max_outputs[refinery.id],
-        f"Tank_Capacity_{refinery.id}",
+        f"Refinery_Max_Outputs_{refinery.id}",
     )
 
 model += (
@@ -156,16 +136,6 @@ model += (
     ),  # Example objective term for production cost
     "Total_Cost",
 )
-
-# Capacity constraints for Stage 1: Refinery to Tank
-for (from_id, to_id), capacity in max_capacity.items():
-    if from_id in refineries_ids and to_id in tanks_ids:
-        model += (x_refinery_to_tank[(from_id, to_id)] <= capacity, f"Capacity_Refinery_to_Tank_{from_id}_{to_id}")
-
-# Capacity constraints for Stage 2: Tank to Customer
-for (from_id, to_id), capacity in max_capacity.items():
-    if from_id in tanks_ids and to_id in customers_ids and (from_id, to_id) in x_tank_to_customer:
-        model += (x_tank_to_customer[(from_id, to_id)] <= capacity, f"Capacity_Tank_to_Customer_{from_id}_{to_id}")
 
 model.solve()
 
