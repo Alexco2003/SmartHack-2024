@@ -9,7 +9,7 @@ class Graph:
     refineries_dict: dict[int, Refinery] = {}
     tanks_dict: dict[int, Tank] = {}
     customers_dict: dict[int, Customer] = {}
-    connections_dict: dict[(int, int), Connection] = {}
+    connections_dict: dict[(int, int), List[Connection]] = {}
 
     @staticmethod
     def load_objects(objects):
@@ -40,6 +40,20 @@ class Graph:
         connections = read_connections(folder + "/connections.csv")
         for connection in connections:
             Graph.adjacency_list[Graph.id_hashmap[connection['from_id']]].append(Graph.id_hashmap[connection['to_id']])
-            Graph.connections_dict[(Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']])] = connection
+            if (Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']]) in Graph.connections_dict:
+                Graph.connections_dict[(Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']])].append(connection)
+            else:
+                Graph.connections_dict[
+                    (Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']])] = [connection]
+
+    @staticmethod
+    def object_search(object_id: int):
+        if object_id in Graph.refineries_dict:
+            return Graph.refineries_dict[object_id]
+        elif object_id in Graph.tanks_dict:
+            return Graph.tanks_dict[object_id]
+        elif object_id in Graph.customers_dict:
+            return Graph.customers_dict[object_id]
+        return -1
 
 
