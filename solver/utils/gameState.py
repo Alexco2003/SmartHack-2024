@@ -28,37 +28,14 @@ class GameState:
             if connection[1] == 0:
                 self.connection_queue.remove(connection)
                 self.graph.connections_dict[(connection[0]['from_id'], connection[0]['to_id'])]['current_capacity'] = 0
-    def add_connection_to_queue(self, connection, days):
+    def add_connection_to_queue(self, connection, days, capacity):
         self.connection_queue.append([connection, days])
-        self.graph.connections_dict[(connection['from_id'], connection['to_id'])]['current_capacity'] = days
+        self.graph.connections_dict[(connection['from_id'], connection['to_id'])]['current_capacity'] = capacity
 
     def get_connections(self):
         return self.connection_queue
 
-# graf = Graph()
-# game_state = GameState(graf)
 
-# print(game_state.get_refinery_current_stock(0))
-# game_state.update_refinery_current_stock(0, 100)
-# print(game_state.get_refinery_current_stock(0))
-#
-# print(game_state.get_tank_current_stock(9))
-# game_state.update_tank_current_stock(9, 100)
-# print(game_state.get_tank_current_stock(9))
-
-# print(game_state.get_refinery_current_stock(0))
-# print(game_state.get_refinery_production(0))
-# game_state.update_refinery_production(0)
-# print(game_state.get_refinery_current_stock(0))
-
-# print(game_state.get_connections())
-# game_state.add_connection_to_queue({'from_id': 0, 'to_id': 17}, 10)
-# print(game_state.get_connections())
-# game_state.update_connections()
-# print(game_state.get_connections())
-# game_state.update_connections()
-#
-# print(game_state.get_connections())
 
 
 
