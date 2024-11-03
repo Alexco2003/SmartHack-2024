@@ -56,12 +56,18 @@ class GameState:
         self.demand_queue = sorted(self.demand_queue,
                                    key=lambda x: (x.start_delivery_day, x.end_delivery_day - x.start_delivery_day))
 
+    def update_demands(self, demands):
+        self.demand_queue = demands
 
-# game = GameState()
-# start_nodes = [0,1,2,3,4,5,6,7,8]
-# end_node = 221
-# quantity = 500
-# path = astar(start_nodes, end_node, lambda x,y: 1, quantity, game)
-# print(path)
+
+#TESTEAZA CA DACA APELEZI DE 2 ORI DIN ACEEASI SURSA SI DESTINATIE ITI DA CONEXIUNI DIFERITE
+game = GameState()
+start_nodes = [0,1,2,3,4,5,6,7,8]
+end_node = 221
+quantity = 500
+path = astar(start_nodes, end_node, lambda x,y: 1, quantity, game)
+print(path)
+path = astar(start_nodes, end_node, lambda x,y: 1, quantity, game)
+print(path)
 # print(game.graph.id_hashmap['9ba06385-f553-4f2f-b4e7-f398373071a8'])
 # print(astar(game.graph.id_hashmap['beb6ba68-6d89-48e0-a6aa-1ee978bafa27'], game.graph.id_hashmap['8a50c288-5063-433f-8da6-64f7a0b4f361'], 10000, lambda x,y: 1, game))

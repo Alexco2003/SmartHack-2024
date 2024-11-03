@@ -1,7 +1,6 @@
 from typing import List, Tuple, Callable
-from solver.utils.types import Connection, Demand
 import heapq
-
+#TODO: implementeaza verificari mai multe pentru succesori => sa nu depaseasca rafinariile capacitatea maxima, sa nu depaseasca tanks capacitatea maxima, sa nu fie folosite drumuri multiple etc
 class Node:
     def __init__(self, node_id, g, h, parent=None, connection=None, capacity=0):
         self.node_id = node_id
@@ -52,7 +51,6 @@ def astar(start_nodes: List[int], end_node: int, heuristic: Callable, quantity: 
     return []
 
 
-# when reconstructing path, update connection queue for game state
 def reconstruct_path(current: Node, game_state) -> List[Tuple[int, int, int]]:
     path = []
     while current.parent is not None:

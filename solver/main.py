@@ -36,6 +36,10 @@ refineries = game.graph.get_all_refineries_id()
 tanks = game.graph.get_all_tanks_id()
 print(refineries)
 
+#HARDCODED REFINARIES FOR DEBUGGING
+#CHANGE FOR COMPETITION
+start_refineries = [0,1,2,3,4,5,6,7]
+
 demands = []
 
 while i < 42:
@@ -43,82 +47,42 @@ while i < 42:
         "day": i,
         "movements": rounds[i]
     }
-    # body = json.dumps({"day": i, "movement": rounds[i]})
-    # print(rounds[i])
     round = Rest.play_round(start, body)
 
     print(round["totalKpis"])
     print(round["penalties"])
 
-    demands.extend(round["demand"])
+    game.load_demands(round["demand"])
 
     demands_copy = []
+    movements = []
 
-    # print(demands)
-    for demand in demands:
+    for demand in game.demand_queue:
+        customer_id = game.graph.id_hashmap(demand.customer_id)
+        demand_capacity = min(game.graph.customers_dict[customer_id].max_input, demand.quantity)
+        # presupunem ca trimitem tot
+        demand.quantity -= demand_capacity
+        while demand_capacity > 0:
+            path = astar(start_nodes=start_refineries, end_node=customer_id, quantity=demand_capacity, heuristic=lambda x,y:1, game_state=game)
+            if not path:
+                break
+            for conn in path:
+                rounds[i].append(
+                    {
+                        "connectionId":conn[2],
+                        "amount":conn[1],
+                    }
+                )
+            sent_capacity = path[-1][1]
+            demand_capacity -= sent_capacity
 
-        cost_min = None
-        solution = None
-        refinery_used = None
-
-        for refinery in refineries:
-            rf = game.graph.object_search(game.graph.id_hashmap[refinery])
-            if rf.current_stock > 0:
-                potential_solution = astar(game.graph.id_hashmap[refinery], game.graph.id_hashmap[demand["customerId"]], min(demand["amount"], rf.current_stock), lambda x, y: 1, game)
-                if cost_min is None:
-                    solution = potential_solution
-                    cost_min = rf.capacity - rf.current_stock
-                elif cost_min < rf.capacity - rf.current_stock:
-                    solution = potential_solution
-                    cost_min = rf.capacity - rf.current_stock
-
-        if solution != None:
-            move_round = demand["startDay"]
-            for index, connection in enumerate(solution[0][3]):
-                rounds[min(move_round, 39)].append({"connectionId": connection, "amount": solution[0][2]})
-                move_round += solution[0][4][index]
-
-            if demand["amount"] - solution[0][2] > 0:
-                demands_copy.append({"customerId": demand["customerId"], "amount": demand["amount"] - solution[0][2], "postDay": demand["postDay"], "startDay": demand["startDay"], "endDay": demand["endDay"]})
-        else:
+        if demand.quantity > 0:
+            # daca nu am reusit sa trimitem tot, updatam cantitatea ce trebuie trimisa
+            if demand_capacity > 0:
+                demand.quantity += demand_capacity
             demands_copy.append(demand)
 
-    demands = demands_copy
-
-    for refinery in refineries:
-
-        if Graph.refineries_dict.get(Graph.id_hashmap[refinery]):
-            Graph.refineries_dict[Graph.id_hashmap[refinery]].current_stock += Graph.refineries_dict[Graph.id_hashmap[refinery]].production
-        # game.update_refinery_production(game.graph.id_hashmap[refinery])
-
-        ref = game.graph.object_search(game.graph.id_hashmap[refinery])
-
-        # print(f"Refinery {ref.name} -> {ref.current_stock} -> {ref.capacity}")
-        while ref.current_stock > ref.capacity:
-            max_space = None
-            tank_used = None
-            # print("Hello Alex!")
-            for tank in game.graph.adjacency_list[game.graph.id_hashmap[refinery]]:
-                tk = game.graph.object_search(tank)
-                # print(f"{tk.current_stock} -> {tk.capacity}")
-                if max_space is None:
-                    max_space = tk.capacity - tk.current_stock
-                    # print(f"Start: {max_space}")
-                    tank_used = tank
-                elif max_space < tk.capacity - tk.current_stock:
-                    max_space = tk.capacity - tk.current_stock
-                    # print(f"Update: {max_space}")
-                    tank_used = tank
-
-            if max_space == 0:
-                # print("rezervoare mereu pline")
-                break
-            ref.current_stock = max(0, ref.current_stock - max_space)
-            rounds[i].append({"connectionId": game.graph.connections_dict[(game.graph.id_hashmap[ref.id], tank_used)],
-                              "amount": max(0, ref.current_stock - max_space)})
-            # print({"connectionId": game.graph.connections_dict[(game.graph.id_hashmap[ref.id], tank_used)]["id"],"amount": max(0, ref.current_stock - max_space)})
-
-    i+=1
+    game.update_demands(demands_copy)
 
 
 Rest.end_session()
