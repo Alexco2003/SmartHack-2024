@@ -182,6 +182,13 @@ class ProblemModel:
                 f"Refinery_Max_Outputs_{refinery.id}",
             )
 
+        # at least one move
+        ProblemModel.model += (
+            pulp.lpSum(ProblemModel.x_refinery_to_tank.values()) + pulp.lpSum(ProblemModel.x_tank_to_customer.values())
+            >= 1,
+            "At_Least_One_Move",
+        )
+
     @staticmethod
     def add_function_objective() -> None:
         ProblemModel.model += (
@@ -268,7 +275,7 @@ class ProblemModel:
 
         ProblemModel.TOTAL_COST += pulp.value(ProblemModel.model.objective)
         ProblemModel.produce_refinery()
-        ProblemModel.display()
+        # ProblemModel.display()
 
     @staticmethod
     def update_model() -> None:
@@ -276,12 +283,3 @@ class ProblemModel:
         ProblemModel.add_decision_variables()
         ProblemModel.add_constraints()
         ProblemModel.add_function_objective()
-
-
-# ProblemModel.load_data()
-# ProblemModel.process_data()
-#
-# for index in range(len(ProblemModel.demands[:10])):
-#     ProblemModel.process_demand(ProblemModel.demands[index])
-#
-# print(f"\n\nTOTAL FINAL COST: {ProblemModel.TOTAL_COST}")
