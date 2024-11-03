@@ -21,14 +21,17 @@ class Node:
 def astar(start_nodes: List[int], end_node: int, heuristic: Callable, quantity: int, game_state):
     open_list = []
     closed_set = set()
+    visited = {}  # To track the minimum cost to each node
 
     for node in start_nodes:
         h = heuristic(node, end_node)
         start = Node(node, g=0, h=h)
         heapq.heappush(open_list, start)
+        visited[node] = 0  # Mark initial cost as 0
 
     while open_list:
         current = heapq.heappop(open_list)
+        # print("BLOCAT A STAR 1")
 
         if current.node_id == end_node:
             return reconstruct_path(current, game_state)
@@ -42,6 +45,13 @@ def astar(start_nodes: List[int], end_node: int, heuristic: Callable, quantity: 
 
             transfer_capacity = min(connection["max_capacity"] - connection["current_capacity"], quantity)
             g_cost = current.g + connection["distance"]
+
+            # Avoid revisiting nodes that exceed constraints or do not offer lower g_cost
+            if (neigh in closed_set) or (g_cost >= visited.get(neigh, float('inf'))):
+                continue
+
+            # Update visited with the new lowest g_cost for this node
+            visited[neigh] = g_cost
 
             h_cost = heuristic(neigh, end_node)
             neighbor = Node(neigh, g=g_cost, h=h_cost, parent=current, connection=connection, capacity=transfer_capacity)
