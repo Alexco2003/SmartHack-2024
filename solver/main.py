@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from api_interface import RequestBodyType, Rest
 from solver.astar import astar
+from solver.graph import Graph
 from solver.utils.gameState import GameState
 from solver.utils.types import Demand
 
@@ -51,9 +52,7 @@ refineries = game.graph.get_all_refineries_id()
 tanks = game.graph.get_all_tanks_id()
 # print(refineries)
 
-# HARDCODED REFINARIES FOR DEBUGGING
-# CHANGE FOR COMPETITION
-start_refineries = [0, 1, 2, 3, 4, 5, 6, 7]
+start_refineries = [Graph.id_hashmap[x] for x in refineries]
 
 demands = []
 
