@@ -22,11 +22,11 @@ def astar(start, end, quantity, heuristic, state):
                     paths.append((path, current_cost, path_capacity, conn_in_path))
                     total_capacity += path_capacity
 
-                    ban_time = 0
-                    for connection in conn_in_path:
-                        ban_time += connection["lead_time_days"]
-                        # print(path_capacity)
-                        state.add_connection_to_queue(connection, ban_time, path_capacity)
+                    # ban_time = 0
+                    # for connection in conn_in_path:
+                    #     ban_time += connection["lead_time_days"]
+                    #     # print(path_capacity)
+                    #     state.add_connection_to_queue(connection, ban_time, path_capacity)
             return paths
 
         # Add all successors to the frontier if they lead towards a viable path
