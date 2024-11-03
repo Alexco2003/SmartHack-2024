@@ -61,3 +61,4 @@ class Graph:
         refineries_id = []
         for refinery_key in Graph.refineries_dict:
             refineries_id.append(Graph.refineries_dict[refinery_key].id)
+        return refineries_id

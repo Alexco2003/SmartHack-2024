@@ -22,6 +22,7 @@ game = GameState("../data")
 
 i = 0
 refineries = game.graph.get_all_refineries_id()
+print(refineries)
 
 while i < 42:
     body = {"day": i, "movement": rounds[i]}
@@ -30,11 +31,13 @@ while i < 42:
     print(round["totalKpis"])
 
     demands = round["demand"]
+    print(demands)
     for demand in demands:
+
         cost_min = None
         solution = None
         for refinery in refineries:
-            potential_solution = astar(refinery, demand["customerId"], demand["amount"], lambda x, y: 1, game)
+            potential_solution = astar(game.graph.id_hashmap[refinery], game.graph.id_hashmap[demand["customerId"]], demand["amount"], lambda x, y: 1, game)
             if cost_min is None:
                 solution = potential_solution
                 cost_min = solution[0][1]
@@ -43,9 +46,10 @@ while i < 42:
                 cost_min = solution[0][1]
 
         move_round = demand["startDay"]
-        for connection in solution[0][3]:
-            rounds[move_round].append({"connectionId": connection["id"], "amount": demand["amount"]})
-            move_round += connection["lead_time_days"]
+        for index, connection in enumerate(solution[0][3]):
+            rounds[min(move_round, 39)].append({"connectionId": connection, "amount": demand["amount"]})
+            move_round += solution[0][4][index]
+    i+=1
 
 
 Rest.end_session()

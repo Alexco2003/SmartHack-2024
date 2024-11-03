@@ -5,12 +5,12 @@ from solver.utils.gameState import GameState
 # A star algorithm which finds multiple paths until the quantity is reached
 def astar(start, end, quantity, heuristic, state):
     frontier = PriorityQueue()
-    frontier.put((0, start, [start], []))
+    frontier.put((0, start, [start], [], []))
     paths = []
     total_capacity = 0
 
     while not frontier.empty() and total_capacity < quantity:
-        current_cost, current, path, conn_in_path = frontier.get()
+        current_cost, current, path, conn_in_path, conn_times = frontier.get()
 
         # Check if we've reached the end node along this path
         if current == end:
@@ -19,7 +19,7 @@ def astar(start, end, quantity, heuristic, state):
                 #                     quantity - total_capacity)
                 path_capacity = quantity
                 if path_capacity != 0:
-                    paths.append((path, current_cost, path_capacity, conn_in_path))
+                    paths.append((path, current_cost, path_capacity, conn_in_path, conn_times))
                     total_capacity += path_capacity
 
                     # ban_time = 0
@@ -35,6 +35,6 @@ def astar(start, end, quantity, heuristic, state):
                 if conn["current_capacity"] == 0:
                     new_cost = current_cost + conn["distance"]
                     priority = new_cost + heuristic(end, next_node)
-                    frontier.put((priority, next_node, path + [next_node], conn_in_path + [conn]))
+                    frontier.put((priority, next_node, path + [next_node], conn_in_path + [conn["id"]], conn_times + [conn["lead_time_days"]]))
 
     return paths
