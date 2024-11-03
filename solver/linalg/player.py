@@ -7,6 +7,15 @@ from solver.utils.types import Demand
 
 
 class LingalgPlayer:
+    """A class to manage a session and play multiple rounds in tester environment.
+
+    Attributes:
+        SESSION_ID (Union[str, None]): The session identifier, initialized as None and assigned
+            when a session is started.
+        NUMBER_OF_ROUNDS (int): The total number of rounds to play, defaulted to 42.
+        moves (List[MovementType]): A list of moves made by the player during each round.
+    """
+
     SESSION_ID = None
     NUMBER_OF_ROUNDS = 42
     moves: List[MovementType] = []
@@ -21,6 +30,12 @@ class LingalgPlayer:
 
     @staticmethod
     def play() -> ResponseType:
+        """Manages the entire play session, including starting the session, processing each round,
+        handling demands, and ending the session.
+
+        Returns:
+            ResponseType: The final response from the last round played.
+        """
         LingalgPlayer.start_session()
 
         ProblemModel.load_data()

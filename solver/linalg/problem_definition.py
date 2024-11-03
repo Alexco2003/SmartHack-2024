@@ -32,7 +32,6 @@ class ProblemModel:
 
     TOTAL_COST = 0
 
-    mapped_connection = {}
     moves: List[MovementType] = []
 
     @staticmethod
@@ -53,29 +52,37 @@ class ProblemModel:
 
     @staticmethod
     def process_data() -> None:
+        """Initialize each dictionary used later for defining the constraints"""
+
+        # process IDs
         ProblemModel.refineries_ids = [refinery.id for refinery in ProblemModel.refineries]
         ProblemModel.tanks_ids = [tank.id for tank in ProblemModel.tanks]
         ProblemModel.customers_ids = [customer.id for customer in ProblemModel.customers]
 
-        # max output tanks can send
+        # max output for each tank
         ProblemModel.tank_max_outputs = {
             tank.id: min(tank.max_output, tank.initial_stock) for tank in ProblemModel.tanks
         }
+
+        # max output for each refinery
         ProblemModel.refinery_max_outputs = {
             refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in ProblemModel.refineries
         }
 
+        # the amount of sent unit by a tank
         for tank in ProblemModel.tanks:
             ProblemModel.sent_units[tank.id] = 0
 
+        # the amount of sent units by a refinery
         for refinery in ProblemModel.refineries:
             ProblemModel.sent_units[refinery.id] = 0
 
         ProblemModel.transport_cost = {}
 
-        # Create a dictionary to hold valid connections
+        # create a dictionary to hold valid connections
         ProblemModel.valid_connections = {}
 
+        # for each connection compute cost and valid connections
         for connection in ProblemModel.connections:
             from_id = connection["from_id"]
             to_id = connection["to_id"]
@@ -87,17 +94,21 @@ class ProblemModel:
             elif connection_type == "TRUCK":
                 ProblemModel.transport_cost[(from_id, to_id)] = distance * ProblemModel.TRUCK_COST_PER_UNIT_DISTANCE
 
-            ProblemModel.valid_connections[(from_id, to_id)] = connection["max_capacity"]
-            ProblemModel.mapped_connection[(from_id, to_id)] = connection["id"]
+            ProblemModel.valid_connections[(from_id, to_id)] = connection["id"]
 
     @staticmethod
     def build_model() -> None:
-        # model
+        """Build a minimizing model"""
         ProblemModel.model = pulp.LpProblem("Fuel_Delivery_Optimization", pulp.LpMinimize)
 
     @staticmethod
     def add_decision_variables() -> None:
-        # decision variables
+        """Add decision variables for:
+
+        Refinery -> Tanks
+        Tanks -> Refinery
+        """
+
         # Stage 1: Transport from refinery to tank
         ProblemModel.x_refinery_to_tank = pulp.LpVariable.dicts(
             "x_refinery_to_tank",
@@ -126,12 +137,15 @@ class ProblemModel:
 
     @staticmethod
     def add_constraints() -> None:
+        """Add the constraints used for this minimizing model"""
+
+        # ensure that total delivery from all tanks meets demand within a threshold range
         for demand in ProblemModel.current_demand:
             customer_id = demand.customer_id
             demand_id = demand.id
             quantity_needed = demand.quantity
 
-            # Ensure that total delivery from all tanks meets demand within a threshold range
+            # lower bound check
             ProblemModel.model += (
                 pulp.lpSum(
                     [
@@ -144,6 +158,7 @@ class ProblemModel:
                 f"Demand_Fulfillment_{customer_id}_{demand_id}_Min",
             )
 
+            # upper bound check
             ProblemModel.model += (
                 pulp.lpSum(
                     [
@@ -156,6 +171,8 @@ class ProblemModel:
                 f"Demand_Fulfillment_{customer_id}_{demand_id}_Max",
             )
 
+        # for each tank calculate the max output it can push and how much it already sent
+        # thus resulting the amount still available
         for tank in ProblemModel.tanks:
             ProblemModel.model += (
                 pulp.lpSum(
@@ -169,6 +186,7 @@ class ProblemModel:
                 f"Tank_Max_Outputs_{tank.id}",
             )
 
+        # analogue to the one above
         for refinery in ProblemModel.refineries:
             ProblemModel.model += (
                 pulp.lpSum(
@@ -182,7 +200,7 @@ class ProblemModel:
                 f"Refinery_Max_Outputs_{refinery.id}",
             )
 
-        # at least one move
+        # have a constraint for at least making one move
         ProblemModel.model += (
             pulp.lpSum(ProblemModel.x_refinery_to_tank.values()) + pulp.lpSum(ProblemModel.x_tank_to_customer.values())
             >= 1,
@@ -191,6 +209,8 @@ class ProblemModel:
 
     @staticmethod
     def add_function_objective() -> None:
+        """Add the function that needs to be minimized"""
+
         ProblemModel.model += (
             # Transport cost for Stage 1: refinery to tank
             pulp.lpSum(
@@ -211,7 +231,7 @@ class ProblemModel:
                     for demand in ProblemModel.current_demand
                     if (tank.id, demand.customer_id) in ProblemModel.transport_cost
                 ]
-            ),  # Example objective term for production cost
+            ),
             "Total_Cost",
         )
 
@@ -221,6 +241,8 @@ class ProblemModel:
 
     @staticmethod
     def display() -> None:
+        """Display the status and each connection with the amount pushed"""
+
         print("Status:", pulp.LpStatus[ProblemModel.model.status])
         for v in ProblemModel.model.variables():
             if v.varValue > 0:
@@ -230,6 +252,8 @@ class ProblemModel:
 
     @staticmethod
     def produce_refinery() -> None:
+        """Logic that updates refinery max output based on the current produced amount"""
+
         ProblemModel.refinery_max_outputs = {
             refinery.id: min(refinery.max_output, refinery.initial_stock) for refinery in ProblemModel.refineries
         }
@@ -242,44 +266,58 @@ class ProblemModel:
         ProblemModel.refinery_max_outputs = refinery_max_outputs_copy
 
     @staticmethod
-    def process_demand(demand: Demand) -> None:
-        ProblemModel.current_demand = [demand]
-
-        ProblemModel.update_model()
-        ProblemModel.solve()
-
-        for v in ProblemModel.model.variables():
-            ids = extract_ids(v.name)
-            value = v.varValue if v.varValue >= 0 else 0  # TODO: try abs
-
-            if value == 0:
-                continue
-
-            # replace _ to -
-            for i in range(len(ids)):
-                ids[i] = ids[i].replace("_", "-")
-
-            if v.name[:18] == "x_tank_to_customer":
-                ProblemModel.sent_units[ids[0]] += value
-            elif v.name[:18] == "x_refinery_to_tank":
-                ProblemModel.sent_units[ids[0]] += value
-
-                diff = ProblemModel.sent_units[ids[1]] - value
-                if diff < 0:
-                    diff = 0
-                ProblemModel.sent_units[ids[1]] = diff
-
-            ProblemModel.moves.append(
-                {"connectionId": ProblemModel.mapped_connection[(ids[0], ids[1])], "amount": value}
-            )
-
-        ProblemModel.TOTAL_COST += pulp.value(ProblemModel.model.objective)
-        ProblemModel.produce_refinery()
-        # ProblemModel.display()
-
-    @staticmethod
     def update_model() -> None:
         ProblemModel.build_model()
         ProblemModel.add_decision_variables()
         ProblemModel.add_constraints()
         ProblemModel.add_function_objective()
+
+    @staticmethod
+    def process_demand(demand: Demand) -> None:
+        """Processes a given demand by optimizing delivery and updating relevant model variables.
+
+        Args:
+            demand (Demand): The demand object containing customer requirements
+        """
+
+        ProblemModel.current_demand = [demand]
+
+        # update the model with the current state
+        ProblemModel.update_model()
+        ProblemModel.solve()
+
+        for v in ProblemModel.model.variables():
+            ids = extract_ids(v.name)
+
+            # ensure that the variable value is non-negative, as this represents an amount
+            value = v.varValue if v.varValue >= 0 else 0
+
+            if value == 0:
+                continue
+
+            # replace underscores with hyphens in the IDs to match the expected format.
+            for i in range(len(ids)):
+                ids[i] = ids[i].replace("_", "-")
+
+            # check if the variable represents a movement from a tank to a customer.
+            if v.name[:18] == "x_tank_to_customer":
+                ProblemModel.sent_units[ids[0]] += value
+            # check if the variable represents a movement from a refinery to a tank.
+            elif v.name[:18] == "x_refinery_to_tank":
+                # update the sent units from the refinery.
+                ProblemModel.sent_units[ids[0]] += value
+
+                # calculate the remaining stock in the tank by subtracting the moved amount.
+                diff = ProblemModel.sent_units[ids[1]] - value
+                if diff < 0:  # ensure that stock doesn't fall below zero.
+                    diff = 0
+                ProblemModel.sent_units[ids[1]] = diff
+
+            ProblemModel.moves.append(
+                {"connectionId": ProblemModel.valid_connections[(ids[0], ids[1])], "amount": value}
+            )
+
+        # update TOTAL_COST
+        ProblemModel.TOTAL_COST += pulp.value(ProblemModel.model.objective)
+        ProblemModel.produce_refinery()
+        # ProblemModel.display()
