@@ -1,4 +1,7 @@
+import os
+
 import pulp
+from solver.api_interface import MovementType
 from solver.utils.reader import *
 from solver.utils.regex import extract_ids
 
@@ -29,13 +32,24 @@ class ProblemModel:
 
     TOTAL_COST = 0
 
+    mapped_connection = {}
+    moves: List[MovementType] = []
+
+    @staticmethod
+    def get_path(name: str) -> str:
+        return os.path.join(os.getcwd(), "../", "data", name)
+
     @staticmethod
     def load_data() -> None:
-        ProblemModel.connections = read_connections("../../data/connections.csv")
-        ProblemModel.customers = read_customers("../../data/customers.csv")
-        ProblemModel.tanks = read_tanks("../../data/tanks.csv")
-        ProblemModel.refineries = read_refineries("../../data/refineries.csv")
-        ProblemModel.demands = read_demands("../../data/demands.csv")
+        ProblemModel.connections = read_connections(ProblemModel.get_path("connections.csv"))
+        ProblemModel.customers = read_customers(ProblemModel.get_path("customers.csv"))
+        ProblemModel.tanks = read_tanks(ProblemModel.get_path("tanks.csv"))
+        ProblemModel.refineries = read_refineries(ProblemModel.get_path("refineries.csv"))
+        # ProblemModel.demands = read_demands("../../data/demands.csv")
+
+    @staticmethod
+    def load_demands(demands: List[Demand]) -> None:
+        ProblemModel.demands = demands
 
     @staticmethod
     def process_data() -> None:
@@ -74,6 +88,7 @@ class ProblemModel:
                 ProblemModel.transport_cost[(from_id, to_id)] = distance * ProblemModel.TRUCK_COST_PER_UNIT_DISTANCE
 
             ProblemModel.valid_connections[(from_id, to_id)] = connection["max_capacity"]
+            ProblemModel.mapped_connection[(from_id, to_id)] = connection["id"]
 
     @staticmethod
     def build_model() -> None:
@@ -228,8 +243,9 @@ class ProblemModel:
 
         for v in ProblemModel.model.variables():
             ids = extract_ids(v.name)
+            value = v.varValue if v.varValue >= 0 else 0  # TODO: try abs
 
-            if v.varValue == 0:
+            if value == 0:
                 continue
 
             # replace _ to -
@@ -237,14 +253,18 @@ class ProblemModel:
                 ids[i] = ids[i].replace("_", "-")
 
             if v.name[:18] == "x_tank_to_customer":
-                ProblemModel.sent_units[ids[0]] += v.varValue
+                ProblemModel.sent_units[ids[0]] += value
             elif v.name[:18] == "x_refinery_to_tank":
-                ProblemModel.sent_units[ids[0]] += v.varValue
+                ProblemModel.sent_units[ids[0]] += value
 
-                diff = ProblemModel.sent_units[ids[1]] - v.varValue
+                diff = ProblemModel.sent_units[ids[1]] - value
                 if diff < 0:
                     diff = 0
                 ProblemModel.sent_units[ids[1]] = diff
+
+            ProblemModel.moves.append(
+                {"connectionId": ProblemModel.mapped_connection[(ids[0], ids[1])], "amount": value}
+            )
 
         ProblemModel.TOTAL_COST += pulp.value(ProblemModel.model.objective)
         ProblemModel.produce_refinery()
@@ -258,10 +278,10 @@ class ProblemModel:
         ProblemModel.add_function_objective()
 
 
-ProblemModel.load_data()
-ProblemModel.process_data()
-
-for index in range(len(ProblemModel.demands[:10])):
-    ProblemModel.process_demand(ProblemModel.demands[index])
-
-print(f"\n\nTOTAL FINAL COST: {ProblemModel.TOTAL_COST}")
+# ProblemModel.load_data()
+# ProblemModel.process_data()
+#
+# for index in range(len(ProblemModel.demands[:10])):
+#     ProblemModel.process_demand(ProblemModel.demands[index])
+#
+# print(f"\n\nTOTAL FINAL COST: {ProblemModel.TOTAL_COST}")
