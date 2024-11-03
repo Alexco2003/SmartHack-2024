@@ -10,14 +10,14 @@ def read_connections(file_path: str) -> List[Connection]:
         reader = csv.DictReader(file)
         for row in reader:
             connection = Connection(
-                id=row['id'],
-                from_id=row['from_id'],
-                to_id=row['to_id'],
-                distance=int(row['distance']),
-                lead_time_days=int(row['lead_time_days']),
-                connection_type=row['connection_type'],
-                max_capacity=int(row['max_capacity']),
-                current_capacity=0
+                id=row["id"],
+                from_id=row["from_id"],
+                to_id=row["to_id"],
+                distance=int(row["distance"]),
+                lead_time_days=int(row["lead_time_days"]),
+                connection_type=row["connection_type"],
+                max_capacity=int(row["max_capacity"]),
+                current_capacity=0,
             )
             connections.append(connection)
     return connections
@@ -64,19 +64,19 @@ def read_refineries(file_path: str) -> List[Refinery]:
         reader = csv.DictReader(file)
         for row in reader:
             refinery = Refinery(
-                id=row['id'],
-                name=row['name'],
-                capacity=int(row['capacity']),
-                max_output=int(row['max_output']),
-                production=int(row['production']),
-                overflow_penalty=float(row['overflow_penalty']),
-                underflow_penalty=float(row['underflow_penalty']),
-                over_output_penalty=float(row['over_output_penalty']),
-                production_cost=float(row['production_cost']),
-                production_co2=float(row['production_co2']),
-                initial_stock=int(row['initial_stock']),
-                node_type=row['node_type'],
-                current_stock=int(row['initial_stock'])
+                id=row["id"],
+                name=row["name"],
+                capacity=int(row["capacity"]),
+                max_output=int(row["max_output"]),
+                production=int(row["production"]),
+                overflow_penalty=float(row["overflow_penalty"]),
+                underflow_penalty=float(row["underflow_penalty"]),
+                over_output_penalty=float(row["over_output_penalty"]),
+                production_cost=float(row["production_cost"]),
+                production_co2=float(row["production_co2"]),
+                initial_stock=int(row["initial_stock"]),
+                node_type=row["node_type"],
+                current_stock=int(row["initial_stock"]),
             )
             refineries.append(refinery)
     return refineries
@@ -88,18 +88,18 @@ def read_tanks(file_path: str) -> List[Tank]:
         reader = csv.DictReader(file)
         for row in reader:
             tank = Tank(
-                id=row['id'],
-                name=row['name'],
-                capacity=int(row['capacity']),
-                max_input=int(row['max_input']),
-                max_output=int(row['max_output']),
-                overflow_penalty=float(row['overflow_penalty']),
-                underflow_penalty=float(row['underflow_penalty']),
-                over_input_penalty=float(row['over_input_penalty']),
-                over_output_penalty=float(row['over_output_penalty']),
-                initial_stock=int(row['initial_stock']),
-                node_type=row['node_type'],
-                current_stock=int(row['init
+                id=row["id"],
+                name=row["name"],
+                capacity=int(row["capacity"]),
+                max_input=int(row["max_input"]),
+                max_output=int(row["max_output"]),
+                overflow_penalty=float(row["overflow_penalty"]),
+                underflow_penalty=float(row["underflow_penalty"]),
+                over_input_penalty=float(row["over_input_penalty"]),
+                over_output_penalty=float(row["over_output_penalty"]),
+                initial_stock=int(row["initial_stock"]),
+                node_type=row["node_type"],
+                current_stock=int(row["initial_stock"]),
             )
             tanks.append(tank)
     return tanks
