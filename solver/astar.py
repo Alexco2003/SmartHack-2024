@@ -1,40 +1,71 @@
-from queue import PriorityQueue
-from solver.utils.gameState import GameState
+from typing import List, Tuple, Callable
+import heapq
+#TODO: implementeaza verificari mai multe pentru succesori => sa nu depaseasca rafinariile capacitatea maxima, sa nu depaseasca tanks capacitatea maxima, sa nu fie folosite drumuri multiple etc
+class Node:
+    def __init__(self, node_id, g, h, parent=None, connection=None, capacity=0):
+        self.node_id = node_id
+        self.g = g                # Cost from start to this node
+        self.h = h                # Heuristic cost to the end node
+        self.parent = parent      # Parent node in the path
+        self.connection = connection # Connection from Parent to Node (or None if Node is refinery)
+        self.capacity = capacity
+
+    @property
+    def f(self):
+        return self.g + self.h    # Total estimated cost
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+# quantity sent is min(customer.max_input, demand.capacity)
+def astar(start_nodes: List[int], end_node: int, heuristic: Callable, quantity: int, game_state):
+    open_list = []
+    closed_set = set()
+    visited = {}  # To track the minimum cost to each node
+
+    for node in start_nodes:
+        h = heuristic(node, end_node)
+        start = Node(node, g=0, h=h)
+        heapq.heappush(open_list, start)
+        visited[node] = 0  # Mark initial cost as 0
+
+    while open_list:
+        current = heapq.heappop(open_list)
+        # print("BLOCAT A STAR 1")
+
+        if current.node_id == end_node:
+            return reconstruct_path(current, game_state)
+
+        closed_set.add(current)
+
+        for connection in game_state.successors(current.node_id):
+            neigh = game_state.graph.id_hashmap[connection["to_id"]]
+            if neigh in closed_set:
+                continue
+
+            transfer_capacity = min(connection["max_capacity"] - connection["current_capacity"], quantity)
+            g_cost = current.g + connection["distance"]
+
+            # Avoid revisiting nodes that exceed constraints or do not offer lower g_cost
+            if (neigh in closed_set) or (g_cost >= visited.get(neigh, float('inf'))):
+                continue
+
+            # Update visited with the new lowest g_cost for this node
+            visited[neigh] = g_cost
+
+            h_cost = heuristic(neigh, end_node)
+            neighbor = Node(neigh, g=g_cost, h=h_cost, parent=current, connection=connection, capacity=transfer_capacity)
+
+            heapq.heappush(open_list, neighbor)
+
+    return []
 
 
-# A star algorithm which finds multiple paths until the quantity is reached
-def astar(start, end, quantity, heuristic, state):
-    frontier = PriorityQueue()
-    frontier.put((0, start, [start], [], []))
-    paths = []
-    total_capacity = 0
-
-    while not frontier.empty() and total_capacity < quantity:
-        current_cost, current, path, conn_in_path, conn_times = frontier.get()
-
-        # Check if we've reached the end node along this path
-        if current == end:
-            for conn in state.graph.connections_dict[(path[-2], path[-1])]:
-                path_capacity = min(conn["max_capacity"],
-                                    quantity - total_capacity)
-                if path_capacity != 0:
-                    paths.append((path, current_cost, path_capacity, conn_in_path, conn_times))
-                    total_capacity += path_capacity
-
-                    # ban_time = 0
-                    # for index, connection in enumerate(conn_in_path):
-                    #     ban_time += conn_times[index]
-                    #     print("Am banat linia ", connection, " pentru ", conn_times[index], " zile")
-                    #     state.add_connection_to_queue(state.graph.connections_hash[connection], ban_time, path_capacity)
-                    #     print("x")
-            return paths
-
-        # Add all successors to the frontier if they lead towards a viable path
-        for next_node in state.successors(current):
-            for conn in state.graph.connections_dict[(current, next_node)]:
-                if conn["current_capacity"] == 0:
-                    new_cost = current_cost + conn["distance"]
-                    priority = new_cost + heuristic(end, next_node)
-                    frontier.put((priority, next_node, path + [next_node], conn_in_path + [conn["id"]], conn_times + [conn["lead_time_days"]]))
-
-    return paths
+def reconstruct_path(current: Node, game_state) -> List[Tuple[int, int, int]]:
+    path = []
+    while current.parent is not None:
+        path.append((current.node_id, current.capacity, current.connection["id"]))
+        game_state.add_connection_to_queue(current.connection, current.connection["lead_time_days"], current.capacity)
+        current = current.parent
+    path.reverse()
+    return path
