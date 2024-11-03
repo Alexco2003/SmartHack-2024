@@ -9,6 +9,15 @@ from solver.astar import astar
 from solver.graph import Graph
 from solver.utils.gameState import GameState
 
+# from solver.api_interface import ResponseType
+# from solver.linalg.player import LingalgPlayer
+
+
+# LingalgPlayer.set_api_key(API_KEY)
+
+# response: ResponseType = LingalgPlayer.play()
+# print(json.dumps(response, indent=4))
+
 # load all env variables
 load_dotenv()
 
