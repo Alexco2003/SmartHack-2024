@@ -1,16 +1,12 @@
-import json
 import os
 from typing import List
 
 from dotenv import load_dotenv
 
-from api_interface import Rest, RequestBodyType
-
+from api_interface import RequestBodyType, Rest
 from solver.astar import astar
-from solver.graph import Graph
 from solver.utils.gameState import GameState
 from solver.utils.types import Demand
-
 
 # from solver.api_interface import ResponseType
 # from solver.linalg.player import LingalgPlayer
@@ -21,19 +17,21 @@ from solver.utils.types import Demand
 # response: ResponseType = LingalgPlayer.play()
 # print(json.dumps(response, indent=4))
 
+
 # Method to parse JSON data into a list of Demand objects
 def parse_demand(data: List[dict]) -> List[Demand]:
     return [
         Demand(
             id=str(i),  # Assuming 'id' is not in JSON; using index as ID or you could generate UUIDs here
-            customer_id=item['customerId'],
-            quantity=item['amount'],
-            post_day=item['postDay'],
-            start_delivery_day=item['startDay'],
-            end_delivery_day=item['endDay']
+            customer_id=item["customerId"],
+            quantity=item["amount"],
+            post_day=item["postDay"],
+            start_delivery_day=item["startDay"],
+            end_delivery_day=item["endDay"],
         )
         for i, item in enumerate(data)
     ]
+
 
 # load all env variables
 load_dotenv()
@@ -51,23 +49,20 @@ game = GameState()
 i = 0
 refineries = game.graph.get_all_refineries_id()
 tanks = game.graph.get_all_tanks_id()
-print(refineries)
+# print(refineries)
 
-#HARDCODED REFINARIES FOR DEBUGGING
-#CHANGE FOR COMPETITION
-start_refineries = [0,1,2,3,4,5,6,7]
+# HARDCODED REFINARIES FOR DEBUGGING
+# CHANGE FOR COMPETITION
+start_refineries = [0, 1, 2, 3, 4, 5, 6, 7]
 
 demands = []
 
 while i < 42:
-    body: RequestBodyType = {
-        "day": i,
-        "movements": rounds[i]
-    }
+    body: RequestBodyType = {"day": i, "movements": rounds[i]}
     round = Rest.play_round(start, body)
 
-    # print(round["totalKpis"])
-    # print(round["penalties"])
+    print(round["totalKpis"])
+    print(round["penalties"])
 
     d = parse_demand(round["demand"])
     game.load_demands(d)
@@ -82,14 +77,20 @@ while i < 42:
         demand.quantity -= demand_capacity
         while demand_capacity > 0:
             # print(customer_id, demand_capacity)
-            path = astar(start_nodes=start_refineries, end_node=customer_id, quantity=demand_capacity, heuristic=lambda x,y:1, game_state=game)
+            path = astar(
+                start_nodes=start_refineries,
+                end_node=customer_id,
+                quantity=demand_capacity,
+                heuristic=lambda x, y: 1,
+                game_state=game,
+            )
             if not path:
                 break
             for conn in path:
-                rounds[i+1].append(
+                rounds[i + 1].append(
                     {
-                        "connectionId":conn[2],
-                        "amount":conn[1],
+                        "connectionId": conn[2],
+                        "amount": conn[1],
                     }
                 )
             sent_capacity = path[-1][1]
@@ -102,7 +103,7 @@ while i < 42:
             demands_copy.append(demand)
 
     game.update_demands(demands_copy)
-    i+=1
+    i += 1
 
 
 Rest.end_session()

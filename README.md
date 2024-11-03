@@ -78,7 +78,21 @@ And at least one move should be made
 
 ### A*
 
-TODO
+#### Definition 
+
+A* is a graph traversal and pathfinding algorithm that is used in many fields of computer science due to its completeness, optimality, and optimal efficiency. 
+
+#### Node Prioritization and Preparation
+
+The data has been formatted as dictionaries. Connections have been minimized to an adjacency list of node ID hashes. This approach has optimized data access in memory. 
+
+#### Optimization of Subsequent Penalties
+
+After multiple runs, we observed a repeated trend of exceeding the upper limit of a refinery. We attempted to minimize this penalty as much as possible. In this process, additional penalties arose, but we did our best to address them.
+
+#### Path Selection and Data Synchronization
+
+With minimum paths generated from each refinery to the required client, we selected the path originating from the refinery with the minimum `total_capacity - current_capacity`. To balance the refineries, the fuel expected to be produced beyond the limit is distributed as much as possible in tanks.
 
 ## PIP Dependency Solver
 
