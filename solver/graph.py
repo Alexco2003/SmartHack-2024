@@ -11,6 +11,8 @@ class Graph:
     customers_dict: dict[int, Customer] = {}
     connections_dict: dict[(int, int), List[Connection]] = {}
 
+    connections_hash: dict[str, Connection] = {}
+
     @staticmethod
     def load_objects(objects):
         for object in objects:
@@ -40,6 +42,7 @@ class Graph:
         connections = read_connections(folder + "/connections.csv")
         for connection in connections:
             Graph.adjacency_list[Graph.id_hashmap[connection['from_id']]].append(Graph.id_hashmap[connection['to_id']])
+            Graph.connections_hash[connection['id']] = connection
             if (Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']]) in Graph.connections_dict:
                 Graph.connections_dict[(Graph.id_hashmap[connection['from_id']], Graph.id_hashmap[connection['to_id']])].append(connection)
             else:
@@ -62,3 +65,10 @@ class Graph:
         for refinery_key in Graph.refineries_dict:
             refineries_id.append(Graph.refineries_dict[refinery_key].id)
         return refineries_id
+
+    @staticmethod
+    def get_all_tanks_id():
+        tanks_id = []
+        for tanks_key in Graph.tanks_dict:
+            tanks_id.append(Graph.tanks_dict[tanks_key].id)
+        return tanks_id

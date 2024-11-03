@@ -15,18 +15,18 @@ def astar(start, end, quantity, heuristic, state):
         # Check if we've reached the end node along this path
         if current == end:
             for conn in state.graph.connections_dict[(path[-2], path[-1])]:
-                # path_capacity = min(conn["max_capacity"],
-                #                     quantity - total_capacity)
-                path_capacity = quantity
+                path_capacity = min(conn["max_capacity"],
+                                    quantity - total_capacity)
                 if path_capacity != 0:
                     paths.append((path, current_cost, path_capacity, conn_in_path, conn_times))
                     total_capacity += path_capacity
 
                     # ban_time = 0
-                    # for connection in conn_in_path:
-                    #     ban_time += connection["lead_time_days"]
-                    #     # print(path_capacity)
-                    #     state.add_connection_to_queue(connection, ban_time, path_capacity)
+                    # for index, connection in enumerate(conn_in_path):
+                    #     ban_time += conn_times[index]
+                    #     print("Am banat linia ", connection, " pentru ", conn_times[index], " zile")
+                    #     state.add_connection_to_queue(state.graph.connections_hash[connection], ban_time, path_capacity)
+                    #     print("x")
             return paths
 
         # Add all successors to the frontier if they lead towards a viable path

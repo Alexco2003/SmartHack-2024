@@ -23,8 +23,9 @@ class GameState:
         return self.graph.tanks_dict[tank_id].current_stock
 
     def update_refinery_production(self, refinery_id: int):
-        if self.graph.refineries_dict[refinery_id].current_stock + self.graph.refineries_dict[refinery_id].production < self.graph.refineries_dict[refinery_id].capacity:
-            self.graph.refineries_dict[refinery_id].current_stock += self.graph.refineries_dict[refinery_id].production
+        self.graph.refineries_dict[refinery_id].current_stock += self.graph.refineries_dict[refinery_id].production
+        # if self.graph.refineries_dict[refinery_id].current_stock + self.graph.refineries_dict[refinery_id].production < self.graph.refineries_dict[refinery_id].capacity:
+        #     self.graph.refineries_dict[refinery_id].current_stock += self.graph.refineries_dict[refinery_id].production
     def get_refinery_production(self, refinery_id: int):
         return self.graph.refineries_dict[refinery_id].production
     def update_connections(self):
