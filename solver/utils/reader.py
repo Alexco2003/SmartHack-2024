@@ -99,7 +99,7 @@ def read_tanks(file_path: str) -> List[Tank]:
                 over_output_penalty=float(row['over_output_penalty']),
                 initial_stock=int(row['initial_stock']),
                 node_type=row['node_type'],
-                current_stock=int(row['init
+                current_stock=int(row['initial_stock']),
             )
             tanks.append(tank)
     return tanks
