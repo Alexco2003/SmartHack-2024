@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, TypedDict
+from typing import Dict, List, TypedDict, Union
 
 import requests
 
@@ -63,10 +63,11 @@ class Rest:
     """
 
     PORT: int = 8080
-    API_KEY: str | None = None
+    API_KEY: Union[str, None] = None
     USER_AGENT: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
     )
+    TIMEOUT: int = 30.0
 
     @staticmethod
     def set_api_key(api_key: str) -> None:
@@ -77,12 +78,16 @@ class Rest:
         Rest.PORT = port
 
     @staticmethod
+    def set_timeout(timeout: float) -> None:
+        Rest.TIMEOUT = timeout
+
+    @staticmethod
     def is_api_key_none() -> None:
         if Rest.API_KEY is None:
             raise ValueError("API KEY can not be None")
 
     @staticmethod
-    def start_session() -> str | ErrorType:
+    def start_session() -> Union[str, ErrorType]:
         """Initiates a session with the REST API.
 
         Returns:
@@ -97,6 +102,7 @@ class Rest:
             response = requests.post(
                 f"http://localhost:{Rest.PORT}/api/v1/session/start",
                 headers={"accept": "*/*", "User-Agent": Rest.USER_AGENT, "API-KEY": Rest.API_KEY},
+                timeout=Rest.TIMEOUT,
             )
 
             response.raise_for_status()
@@ -109,7 +115,7 @@ class Rest:
         return response.text
 
     @staticmethod
-    def end_session() -> ResponseType | ErrorType:
+    def end_session() -> Union[ResponseType, ErrorType]:
         """Ends the current session with the REST API.
 
         Returns:
@@ -120,12 +126,13 @@ class Rest:
         response = requests.post(
             f"http://localhost:{Rest.PORT}/api/v1/session/end",
             headers={"accept": "*/*", "User-Agent": Rest.USER_AGENT, "API-KEY": Rest.API_KEY},
+            timeout=Rest.TIMEOUT,
         )
 
         return json.loads(response.text)
 
     @staticmethod
-    def play_round(session_id: str, body: RequestBodyType) -> ResponseType | ErrorType:
+    def play_round(session_id: str, body: RequestBodyType) -> Union[ResponseType, ErrorType]:
         """Sends a request to play a round in the current session.
 
         Args:
@@ -147,6 +154,7 @@ class Rest:
                 "SESSION-ID": session_id,
             },
             json=body,
+            timeout=Rest.TIMEOUT,
         )
 
         return json.loads(response.text)
