@@ -100,7 +100,7 @@ class Rest:
 
         try:
             response = requests.post(
-                f"http://localhost:{Rest.PORT}/api/v1/session/start",
+                f"https://smarthack2024-eval.cfapps.eu12.hana.ondemand.com/api/v1/session/start",
                 headers={"accept": "*/*", "User-Agent": Rest.USER_AGENT, "API-KEY": Rest.API_KEY},
                 timeout=Rest.TIMEOUT,
             )
@@ -124,7 +124,7 @@ class Rest:
         Rest.is_api_key_none()
 
         response = requests.post(
-            f"http://localhost:{Rest.PORT}/api/v1/session/end",
+            f"https://smarthack2024-eval.cfapps.eu12.hana.ondemand.com/api/v1/session/end",
             headers={"accept": "*/*", "User-Agent": Rest.USER_AGENT, "API-KEY": Rest.API_KEY},
             timeout=Rest.TIMEOUT,
         )
@@ -146,7 +146,7 @@ class Rest:
         Rest.is_api_key_none()
 
         response = requests.post(
-            f"http://localhost:{Rest.PORT}/api/v1/play/round",
+            f"https://smarthack2024-eval.cfapps.eu12.hana.ondemand.com/api/v1/play/round",
             headers={
                 "accept": "*/*",
                 "User-Agent": Rest.USER_AGENT,

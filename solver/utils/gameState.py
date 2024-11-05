@@ -1,7 +1,8 @@
+from typing import List
+
 from solver.astar import astar
 from solver.graph import Graph
 from solver.utils.types import Connection, Demand
-from typing import List
 
 
 class GameState:
@@ -11,15 +12,20 @@ class GameState:
         self.demand_queue: List[Demand] = []
         self.connection_queue = []
 
+    def update_round(self):
+        self.update_connections()
+        self.update_refinery_production()
+
     def update_refinery_current_stock(self, refinery_id: int, new_capacity: int):
         self.graph.refineries_dict[refinery_id].current_stock = new_capacity
+
     def update_tank_current_stock(self, tank_id: int, new_capacity: int):
         self.graph.tanks_dict[tank_id].current_stock = new_capacity
 
-    def update_refinery_production(self, refinery_id: int):
-        if self.graph.refineries_dict[refinery_id].current_stock + self.graph.refineries_dict[refinery_id].production < \
-                self.graph.refineries_dict[refinery_id].capacity:
-            self.graph.refineries_dict[refinery_id].current_stock += self.graph.refineries_dict[refinery_id].production
+    def update_refinery_production(self):
+        for refinery in self.graph.refineries_dict.values():
+            if refinery.current_stock + refinery.production < refinery.capacity:
+                refinery.current_stock += refinery.production
 
     def update_connections(self):
         for blocked_connection_details in self.connection_queue[:]:
@@ -29,11 +35,11 @@ class GameState:
                 conn = blocked_connection_details[0]
                 restored_capacity = blocked_connection_details[2]
                 self.connection_queue.remove(blocked_connection_details)
-                conn['current_capacity'] = min(0, conn['current_capacity'] - restored_capacity)
+                conn["current_capacity"] = min(0, conn["current_capacity"] - restored_capacity)
 
     def add_connection_to_queue(self, connection, days, capacity):
         self.connection_queue.append([connection, days, capacity])
-        connection['current_capacity'] = max(connection["current_capacity"] + capacity, connection["max_capacity"])
+        connection["current_capacity"] = max(connection["current_capacity"] + capacity, connection["max_capacity"])
 
     # returns a list with the valid connections from curr
     def successors(self, curr) -> List[Connection]:
@@ -54,14 +60,15 @@ class GameState:
     def load_demands(self, demands):
         self.demand_queue += demands
         # print(demands)
-        self.demand_queue = sorted(self.demand_queue,
-                                   key=lambda x: (x.start_delivery_day, x.end_delivery_day - x.start_delivery_day))
+        self.demand_queue = sorted(
+            self.demand_queue, key=lambda x: (x.start_delivery_day, x.end_delivery_day - x.start_delivery_day)
+        )
 
     def update_demands(self, demands):
         self.demand_queue = demands
 
 
-#TESTEAZA CA DACA APELEZI DE 2 ORI DIN ACEEASI SURSA SI DESTINATIE ITI DA CONEXIUNI DIFERITE
+# TESTEAZA CA DACA APELEZI DE 2 ORI DIN ACEEASI SURSA SI DESTINATIE ITI DA CONEXIUNI DIFERITE
 # game = GameState()
 # start_nodes = [0,1,2,3,4,5,6,7,8]
 # end_node = 221

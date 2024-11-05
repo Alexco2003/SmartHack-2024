@@ -102,6 +102,7 @@ while i < 42:
             demands_copy.append(demand)
 
     game.update_demands(demands_copy)
+    # game.update_round()
     i += 1
 
 
