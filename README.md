@@ -1,6 +1,6 @@
 # SmartHack-2024
 
-You can read more about the task [here](/docs/problem.md)
+For more details on the task and to access the evaluation platform, please refer to the [SmartHack 2024 Challenge repository on GitHub](https://github.com/skpha13/SmartHack-2024-Challenge)
 
 ## Approaches
 
